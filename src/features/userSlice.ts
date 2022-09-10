@@ -1,5 +1,10 @@
-import { createSlice } from "@reduxjs/toolkit";
+import { createSlice, PayloadAction } from "@reduxjs/toolkit";
 import { RootState } from "../app/store";
+
+interface USER {
+	displayName: string;
+	photoUrl: string;
+}
 
 export const userSlice = createSlice({
 	name: "user",
@@ -16,10 +21,15 @@ export const userSlice = createSlice({
 			//ログアウトしたので、初期化しておく
 			state.user = { uid: "", photoUrl: "", displayName: "" };
 		},
+		//情報を更新する
+		updateUserProfile: (state, action: PayloadAction<USER>) => {
+			state.user.displayName = action.payload.displayName;
+			state.user.photoUrl = action.payload.photoUrl;
+		},
 	},
 });
 
-export const { login, logout } = userSlice.actions;
+export const { login, logout, updateUserProfile } = userSlice.actions;
 
 //reduxのstoreのstateをreactのコンポーネントから参照する時に、useSelectorを使い、
 //その時に参照する関数を定義している（userのstateを返す）

@@ -1,49 +1,54 @@
-import React, { useState, FC } from "react";
+import React, { useState } from "react";
 import { useDispatch } from "react-redux";
+import { updateUserProfile } from "../features/userSlice";
 import styles from "./Auth.module.css";
 import { auth, provider, storage } from "../firebase";
 
-//まとめてimport from material-ui
 import {
 	Avatar,
 	Button,
 	CssBaseline,
 	TextField,
-	FormControlLabel,
-	Checkbox,
-	Link,
 	Paper,
-	Box,
 	Grid,
 	Typography,
 	makeStyles,
+	Modal,
+	IconButton,
+	Box,
 } from "@material-ui/core";
+
 import SendIcon from "@material-ui/icons/Send";
 import CameraIcon from "@material-ui/icons/Camera";
 import EmailIcon from "@material-ui/icons/Email";
 import LockOutlinedIcon from "@material-ui/icons/LockOutlined";
 import AccountCircleIcon from "@material-ui/icons/AccountCircle";
+function getModalStyle() {
+	const top = 50;
+	const left = 50;
 
-function Copyright() {
-	return (
-		<Typography variant="body2" color="textSecondary" align="center">
-			{"Copyright © "}
-			<Link color="inherit" href="https://material-ui.com/">
-				Your Website
-			</Link>{" "}
-			{new Date().getFullYear()}
-			{"."}
-		</Typography>
-	);
+	return {
+		top: `${top}%`,
+		left: `${left}%`,
+		transform: `translate(-${top}%, -${left}%)`,
+	};
 }
-
 const useStyles = makeStyles((theme) => ({
 	root: {
 		height: "100vh",
 	},
+	modal: {
+		outline: "none",
+		position: "absolute",
+		width: 400,
+		borderRadius: 10,
+		backgroundColor: "white",
+		boxShadow: theme.shadows[5],
+		padding: theme.spacing(10),
+	},
 	image: {
 		backgroundImage:
-			"url(https://images.unsplash.com/photo-1626391260353-78bdd8a7bc7c?ixlib=rb-1.2.1&ixid=MnwxMjA3fDB8MHxwaG90by1wYWdlfHx8fGVufDB8fHx8&auto=format&fit=crop&w=688&q=80)",
+			"url(https://tech2.kimihiko.jp/wp-content/uploads/2021/07/woman-showing-twitter-icon.png)",
 		backgroundRepeat: "no-repeat",
 		backgroundColor:
 			theme.palette.type === "light"
@@ -63,7 +68,7 @@ const useStyles = makeStyles((theme) => ({
 		backgroundColor: theme.palette.secondary.main,
 	},
 	form: {
-		width: "100%", // Fix IE 11 issue.
+		width: "100%",
 		marginTop: theme.spacing(1),
 	},
 	submit: {
@@ -71,25 +76,65 @@ const useStyles = makeStyles((theme) => ({
 	},
 }));
 
-const Auth: FC = () => {
+const Auth: React.FC = () => {
 	const classes = useStyles();
+
+	const dispatch = useDispatch();
 	const [email, setEmail] = useState("");
 	const [password, setPassword] = useState("");
-	//ログインモードを最初はOn(true)にしておく
+	const [username, setUsername] = useState("");
+	const [avatarImage, setAvatarImage] = useState<File | null>(null);
 	const [isLogin, setIsLogin] = useState(true);
-
+	const [openModal, setOpenModal] = React.useState(false);
+	const [resetEmail, setResetEmail] = useState("");
+	const onChangeImageHandler = (e: React.ChangeEvent<HTMLInputElement>) => {
+		if (e.target.files![0]) {
+			setAvatarImage(e.target.files![0]);
+			e.target.value = "";
+		}
+	};
+	const sendResetEmail = async (e: React.MouseEvent<HTMLElement>) => {
+		await auth
+			.sendPasswordResetEmail(resetEmail)
+			.then(() => {
+				setOpenModal(false);
+				setResetEmail("");
+			})
+			.catch((err) => {
+				alert(err.message);
+				setResetEmail("");
+			});
+	};
+	const signInGoogle = async () => {
+		await auth.signInWithPopup(provider).catch((err) => alert(err.message));
+	};
 	const signInEmail = async () => {
 		await auth.signInWithEmailAndPassword(email, password);
 	};
-
 	const signUpEmail = async () => {
-		await auth.createUserWithEmailAndPassword(email, password);
-	};
-
-	//非同期関数で処理が終わるのをawaitで待つようにしている
-	const signInGoogle = async () => {
-		//ポップアップでGoogleのサインインを表示させる
-		await auth.signInWithPopup(provider).catch((err) => alert(err.message));
+		const authUser = await auth.createUserWithEmailAndPassword(email, password);
+		let url = "";
+		if (avatarImage) {
+			const S =
+				"abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+			const N = 16;
+			const randomChar = Array.from(crypto.getRandomValues(new Uint32Array(N)))
+				.map((n) => S[n % S.length])
+				.join("");
+			const fileName = randomChar + "_" + avatarImage.name;
+			await storage.ref(`avatars/${fileName}`).put(avatarImage);
+			url = await storage.ref("avatars").child(fileName).getDownloadURL();
+		}
+		await authUser.user?.updateProfile({
+			displayName: username,
+			photoURL: url,
+		});
+		dispatch(
+			updateUserProfile({
+				displayName: username,
+				photoUrl: url,
+			})
+		);
 	};
 
 	return (
@@ -105,6 +150,44 @@ const Auth: FC = () => {
 						{isLogin ? "Login" : "Register"}
 					</Typography>
 					<form className={classes.form} noValidate>
+						{!isLogin && (
+							<>
+								<TextField
+									variant="outlined"
+									margin="normal"
+									required
+									fullWidth
+									id="username"
+									label="Username"
+									name="username"
+									autoComplete="username"
+									autoFocus
+									value={username}
+									onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+										setUsername(e.target.value);
+									}}
+								/>
+								<Box textAlign="center">
+									<IconButton>
+										<label>
+											<AccountCircleIcon
+												fontSize="large"
+												className={
+													avatarImage
+														? styles.login_addIconLoaded
+														: styles.login_addIcon
+												}
+											/>
+											<input
+												className={styles.login_hiddenIcon}
+												type="file"
+												onChange={onChangeImageHandler}
+											/>
+										</label>
+									</IconButton>
+								</Box>
+							</>
+						)}
 						<TextField
 							variant="outlined"
 							margin="normal"
@@ -114,11 +197,8 @@ const Auth: FC = () => {
 							label="Email Address"
 							name="email"
 							autoComplete="email"
-							autoFocus
 							value={email}
-							onChange={(
-								e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>
-							) => {
+							onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
 								setEmail(e.target.value);
 							}}
 						/>
@@ -133,11 +213,17 @@ const Auth: FC = () => {
 							id="password"
 							autoComplete="current-password"
 							value={password}
-							onChange={(
-								e: React.ChangeEvent<HTMLTextAreaElement | HTMLInputElement>
-							) => setPassword(e.target.value)}
+							onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+								setPassword(e.target.value);
+							}}
 						/>
+
 						<Button
+							disabled={
+								isLogin
+									? !email || password.length < 6
+									: !username || !email || password.length < 6 || !avatarImage
+							}
 							fullWidth
 							variant="contained"
 							color="primary"
@@ -163,17 +249,21 @@ const Auth: FC = () => {
 						>
 							{isLogin ? "Login" : "Register"}
 						</Button>
-
 						<Grid container>
 							<Grid item xs>
-								<span className={styles.login_reset}>Forgot passward?</span>
+								<span
+									className={styles.login_reset}
+									onClick={() => setOpenModal(true)}
+								>
+									Forgot password ?
+								</span>
 							</Grid>
-							<Grid item xs>
+							<Grid item>
 								<span
 									className={styles.login_toggleMode}
 									onClick={() => setIsLogin(!isLogin)}
 								>
-									{isLogin ? "Create new account?" : "Back to login"}
+									{isLogin ? "Create new account ?" : "Back to login"}
 								</span>
 							</Grid>
 						</Grid>
@@ -181,13 +271,36 @@ const Auth: FC = () => {
 						<Button
 							fullWidth
 							variant="contained"
-							color="primary"
+							color="default"
 							className={classes.submit}
+							startIcon={<CameraIcon />}
 							onClick={signInGoogle}
 						>
-							Sign In With Google
+							SignIn with Google
 						</Button>
 					</form>
+
+					<Modal open={openModal} onClose={() => setOpenModal(false)}>
+						<div style={getModalStyle()} className={classes.modal}>
+							<div className={styles.login_modal}>
+								<TextField
+									InputLabelProps={{
+										shrink: true,
+									}}
+									type="email"
+									name="email"
+									label="Reset E-mail"
+									value={resetEmail}
+									onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+										setResetEmail(e.target.value);
+									}}
+								/>
+								<IconButton onClick={sendResetEmail}>
+									<SendIcon />
+								</IconButton>
+							</div>
+						</div>
+					</Modal>
 				</div>
 			</Grid>
 		</Grid>
