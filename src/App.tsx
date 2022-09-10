@@ -3,6 +3,8 @@ import styles from "./App.module.css";
 import { useSelector, useDispatch } from "react-redux";
 import { selectUser, login, logout } from "./features/userSlice";
 import { auth } from "./firebase";
+import Feed from "./components/Feed";
+import Auth from "./components/Auth";
 
 const App: FC = () => {
 	// コンポーネントからReduxのstateを呼び出す
@@ -33,7 +35,18 @@ const App: FC = () => {
 			unSub();
 		};
 	}, [dispatch]);
-	return <div className="App"></div>;
+	return (
+		<>
+			{/* uidがある時は、Feedコンポーネントへ、ない時はAuthへ */}
+			{user.uid ? (
+				<div className={styles.app}>
+					<Feed />
+				</div>
+			) : (
+				<Auth />
+			)}
+		</>
+	);
 };
 
 export default App;
