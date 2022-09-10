@@ -1,58 +1,39 @@
-import React from 'react';
-import logo from './logo.svg';
-import { Counter } from './features/counter/Counter';
-import './App.css';
+import React, { useEffect, FC } from "react";
+import styles from "./App.module.css";
+import { useSelector, useDispatch } from "react-redux";
+import { selectUser, login, logout } from "./features/userSlice";
+import { auth } from "./firebase";
 
-function App() {
-  return (
-    <div className="App">
-      <header className="App-header">
-        <img src={logo} className="App-logo" alt="logo" />
-        <Counter />
-        <p>
-          Edit <code>src/App.tsx</code> and save to reload.
-        </p>
-        <span>
-          <span>Learn </span>
-          <a
-            className="App-link"
-            href="https://reactjs.org/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            React
-          </a>
-          <span>, </span>
-          <a
-            className="App-link"
-            href="https://redux.js.org/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Redux
-          </a>
-          <span>, </span>
-          <a
-            className="App-link"
-            href="https://redux-toolkit.js.org/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Redux Toolkit
-          </a>
-          ,<span> and </span>
-          <a
-            className="App-link"
-            href="https://react-redux.js.org/"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            React Redux
-          </a>
-        </span>
-      </header>
-    </div>
-  );
-}
+const App: FC = () => {
+	// コンポーネントからReduxのstateを呼び出す
+	const user = useSelector(selectUser);
+	//loginとlogoutをdispachするためにuseDispachでdispachを作成
+	// dispach（送り出す）
+	const dispatch = useDispatch();
+
+	//userに対して何らかの変化が起こった時に呼び出される(ex. login, logout, 変わった時など）
+	//onAuthStateChangedの引数には、変更後のuser情報が入る引数名を設定
+	useEffect(() => {
+		const unSub = auth.onAuthStateChanged((authUser) => {
+			//もしauthUser情報があれば...
+			if (authUser) {
+				dispatch(
+					login({
+						uid: authUser.uid,
+						photoUrl: authUser.photoURL,
+						displayName: authUser.displayName,
+					})
+				);
+			} else {
+				dispatch(logout());
+			}
+		});
+		//cleanup関数
+		return () => {
+			unSub();
+		};
+	}, [dispatch]);
+	return <div className="App"></div>;
+};
 
 export default App;

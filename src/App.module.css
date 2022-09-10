@@ -1,0 +1,8 @@
+/* moduleという拡張子を使うことによって、
+reactのファイル（今回はApp.tsxと一対一で対応させることができる） */
+.app {
+	display: flex;
+	height: 100vh;
+	padding: 30px 80px;
+	background-color: #444447;
+}
